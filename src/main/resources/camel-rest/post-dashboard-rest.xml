@@ -1,0 +1,29 @@
+<rests xmlns="http://camel.apache.org/schema/spring">
+	<rest bindingMode="auto">
+
+		
+
+		<post uri="/mailbox/unread">
+			<to uri="direct:inbox1" />
+		</post>
+		<post uri="/sessioncheck">
+			<to uri="direct:sessioncheck" />
+		</post>
+		<post uri="/applyLoan">
+			<to uri="direct:applyLoan" />
+		</post>
+		<post uri="/SFP01">
+			<to uri="direct:SFP01" />
+		</post>
+		<post uri="/SFP02">
+			<to uri="direct:SFP02" />
+		</post>
+		<post uri="/SFP03">
+			<to uri="direct:SFP03" />
+		</post>
+		
+
+
+
+	</rest>
+</rests>

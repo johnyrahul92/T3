@@ -1,0 +1,282 @@
+<routes xmlns="http://camel.apache.org/schema/spring">
+
+	<route id="callRemoteService">
+		<from uri="direct:callRemoteService" />
+
+		<choice>
+			<when>
+				<simple>${header.state} == null</simple>
+				<to uri="direct:putParamsFromCache2Headers" />
+			</when>
+		</choice>
+
+		<setHeader headerName="CamelHttpMethod">
+			<constant>POST</constant>
+		</setHeader>
+		<setHeader headerName="CamelCharsetName">
+			<constant>UTF-8</constant>
+		</setHeader>
+		<setHeader headerName="Content-Type">
+			<constant>application/x-www-form-urlencoded; charset=utf-8</constant>
+		</setHeader>
+		<recipientList>
+			<simple>velocity://templates/vm/${header.vm-template}</simple>
+		</recipientList>
+		<!-- <to uri="velocity://olb-login-username.vm" /> -->
+		<log message=" velocity Body : ${body}" />
+
+		<setHeader headerName="olbUrl">
+			<simple>{{olb.url}}?bridgeEndpoint=true&amp;httpClient.soTimeout={{olb.fcdb.timeout}}</simple>
+			<!-- <simple>https://testgbonline.e-gulfbank.com/T002/internet?bridgeEndpoint=true&amp;httpClient.soTimeout=20000</simple> -->
+			<!-- <simple>http://10.100.129.50:7005/T002/internet??bridgeEndpoint=true&amp;httpClient.soTimeout=20000</simple> -->
+		</setHeader>
+		<recipientList>
+			<simple>${header.olbUrl}</simple>
+		</recipientList>
+		<convertBodyTo type="java.lang.String" />
+		<log message=" Body from FCDB : ${body}" />
+		<log message="content type : ${headers.Content-Type} "></log>
+
+
+
+		<choice>
+			<when>
+				<simple>${headers.Content-Type} not contains 'xml'</simple>
+				<log
+					message="Non-XML response ${headers.Content-Type} received from GB. Returning as is..."
+					loggingLevel="WARN" />
+				<log
+					message="------------------header content type does not contain xml -------------"
+					loggingLevel="INFO" />
+			</when>
+			<otherwise>
+
+				<choice>
+					<when>
+						<xpath>not(//faml/response/result)</xpath>
+
+						<log message="Session not found" loggingLevel="WARN" />
+						<!-- <to uri="direct:deleteProfileCacheData" /> <to uri="direct:deleteOlbSessionsCacheData" 
+							/> -->
+
+						<to uri="direct:handle-olb-session-out" />
+						<stop />
+					</when>
+					<when>
+						<xpath>//faml/response/result/resultdto/returncode != 0</xpath>
+						<to uri="direct:handleError" />
+					</when>
+					<when>
+						<xpath>//faml/response/result/resultdto/errors/errordto</xpath>
+						<to uri="direct:handleError" />
+					</when>
+
+				</choice>
+			</otherwise>
+		</choice>
+
+	</route>
+
+	<route streamCache="true" id="createProfile">
+		<from uri="direct:/createProfile" />
+
+		<process ref="uniqueIdGenProccessor" />
+
+		<log message="uniqueId is : ${header.uniqueId}"></log>
+
+		<to
+			uri="xslt://templates/xsl/userProfile.xsl?transformerFactory=#transformerFactoryImpl" />
+
+
+
+		<to uri="direct:putProfileCacheData" />
+
+		<setBody>
+			<simple>
+                    <![CDATA[
+                    { "siid":"${header.siid}","useridno" : "${header.useridno}", "dataid": "${header.dataid}","userid": "${header.userid}","idcustomer": "${header.idcustomer}","idchanneluser": "${header.idchanneluser}","uniqueId": "${header.uniqueId}"}]]></simple>
+		</setBody>
+
+		<to uri="direct:putOlbSessionsCacheData" />
+
+		<setBody>
+			<simple> 
+			{ 
+			"status":"SUCCESS",
+			"uniqueId" : "${header.uniqueId}"
+			}
+			</simple>
+		</setBody>
+	</route>
+
+	<route id="error-handler">
+		<from uri="direct:handleError" />
+		<log message="coming to error handler"></log>
+		<choice>
+			<when>
+				<simple>${header.ignoreSpecificErrorCode} != null</simple>
+				<setHeader headerName="ignored">
+					<xpath resultType="java.lang.Integer">
+                            count(//faml/response/result/resultdto/errors/errordto[contains(in:header("ignoreSpecificErrorCode"),
+                            errorcode/text())])
+                        </xpath>
+				</setHeader>
+				<setHeader headerName="all">
+					<xpath resultType="java.lang.Integer">
+                            count(//faml/response/result/resultdto/errors/errordto)
+                        </xpath>
+				</setHeader>
+				<choice>
+					<when>
+						<simple>${header.all} &gt; ${header.ignored}</simple>
+
+						<to uri="direct:headers-cleanup" />
+						<to uri="direct:handle-olb-error" />
+						<stop />
+					</when>
+				</choice>
+			</when>
+			<otherwise>
+				<to uri="direct:headers-cleanup" />
+				<to uri="direct:handle-olb-error" />
+				<stop />
+			</otherwise>
+		</choice>
+	</route>
+
+
+	<route id="extract-session-info">
+		<from uri="direct:putParamsFromCache2Headers" />
+
+		<log message="Getting session details for the user"></log>
+		<choice>
+			<when>
+				<simple>${header.uniqueId} == null</simple>
+				<log message="Anonymous access detected" loggingLevel="WARN" />
+				<to uri="direct:handle-olb-session-out" />
+				<stop />
+			</when>
+		</choice>
+
+		<to uri="direct:getOlbSessionsCacheData" />
+
+
+		<choice>
+			<when>
+				<simple>${header.CamelEhcacheActionHasResult} == true</simple>
+				<unmarshal ref="xmlJsonDataFormat" />
+
+				<setHeader headerName="Content-Type">
+					<constant>application/xml</constant>
+				</setHeader>
+
+
+				<!-- Small trick here: some routes may set dataId themselves. We don't 
+					want to override that custom value here! -->
+				<choice>
+					<when>
+						<simple>${header.dataId} == null</simple>
+						<setHeader headerName="dataId">
+							<xpath resultType="java.lang.String">//dataid</xpath>
+						</setHeader>
+						<setHeader headerName="dataId">
+							<method ref="encodeHelper"
+								method="encodeUrl(${headers.dataId})" />
+						</setHeader>
+					</when>
+				</choice>
+
+				<setHeader headerName="useridno">
+					<xpath resultType="java.lang.String">//userid</xpath>
+				</setHeader>
+
+				<setHeader headerName="sessionId">
+					<xpath resultType="java.lang.String">//siid</xpath>
+				</setHeader>
+
+				<setHeader headerName="customerId">
+					<xpath resultType="java.lang.String">//idcustomer</xpath>
+				</setHeader>
+
+				<setHeader headerName="idchanneluser">
+					<xpath resultType="java.lang.String">//idchanneluser</xpath>
+				</setHeader>
+
+
+				<setHeader headerName="sessionId">
+					<method ref="encodeHelper"
+						method="encodeUrl(${headers.sessionId})" />
+				</setHeader>
+
+				<setHeader headerName="Cookie">
+					<simple>${header.Set-Cookie}</simple>
+				</setHeader>
+			</when>
+			<otherwise>
+				<log
+					message="No session data found. Perhaps the user is anonymous"
+					loggingLevel="WARN" />
+				<to uri="direct:handle-olb-session-out" />
+				<stop />
+			</otherwise>
+		</choice>
+
+
+
+
+	</route>
+
+	<!-- ==========Cleans up the response headers and sets json response content-type========================================= -->
+	<route id="headers-cleanup">
+		<from uri="direct:headers-cleanup" />
+		<removeHeaders pattern="*"
+			excludePattern="CamelHttp*|Content-Type" />
+	</route>
+
+	<!-- ===========================Error Handling Route======================================== -->
+	<route id="olb-error">
+		<from uri="direct:handle-olb-error" />
+
+		<log message="coming to error handler last"></log>
+		<log message="headers ${headers}"></log>
+
+		<setHeader headerName="Content-Type">
+			<constant>text/xml; charset=UTF-8</constant>
+		</setHeader>
+
+		<setHeader headerName="CamelHttpResponseCode">
+			<constant>400</constant>
+		</setHeader>
+
+		<to
+			uri="xslt://templates/xsl/errors.xsl?transformerFactory=#transformerFactoryImpl" />
+
+
+	</route>
+
+	<!-- ===========================Session out Handling Route======================================== -->
+	<route id="session-out">
+		<from uri="direct:handle-olb-session-out" />
+		<setHeader headerName="CamelHttpResponseCode">
+			<constant>401</constant>
+		</setHeader>
+		<setBody>
+			<simple>
+			{
+						"errors": [
+									{
+										 "code": "401",
+										 "message": "Session not found"
+									}
+								 ]
+					}
+			</simple>
+		</setBody>
+	</route>
+
+
+
+
+
+
+</routes>

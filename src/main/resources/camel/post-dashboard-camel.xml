@@ -1,0 +1,109 @@
+<routes xmlns="http://camel.apache.org/schema/spring">
+
+	<route id="inbox1">
+		<from uri="direct:inbox1" />
+
+		<log message="INBOX1 : ${headers}"></log>
+
+		<setHeader headerName="vm-template">
+			<constant>inbox1.vm</constant>
+		</setHeader>
+
+		<to uri="direct:callRemoteService" />
+		<to uri="xslt://templateS/xsl/unread.xsl"/>
+
+		<to uri="direct:headers-cleanup" />
+
+	</route>
+	
+	<route id="SFP01">
+		<from uri="direct:SFP01" />
+
+		<log message="SFP01 : ${headers}"></log>
+
+		<setHeader headerName="vm-template">
+			<constant>SFP01.vm</constant>
+		</setHeader>
+
+		<to uri="direct:callRemoteService" />
+		
+		<log message="SFP01 body : ${body}"></log>
+		
+
+		<to uri="direct:headers-cleanup" />
+
+	</route>
+	
+	<route id="SFP02">
+		<from uri="direct:SFP02" />
+
+		<log message="SFP02 : ${headers}"></log>
+
+		<setHeader headerName="vm-template">
+			<constant>SFP02.vm</constant>
+		</setHeader>
+
+		<to uri="direct:callRemoteService" />
+		
+		<log message="SFP02 body : ${body}"></log>
+		
+
+		<to uri="direct:headers-cleanup" />
+
+	</route>
+	
+	<route id="SFP03">
+		<from uri="direct:SFP03" />
+
+		<log message="SFP03 : ${headers}"></log>
+
+		<setHeader headerName="vm-template">
+			<constant>SFP03.vm</constant>
+		</setHeader>
+
+		<to uri="direct:callRemoteService" />
+		
+		<log message="SFP03 body : ${body}"></log>
+		<to uri="direct:headers-cleanup" />
+	</route>
+	
+	
+	<route id="applyLoan">
+		<from uri="direct:applyLoan" />
+
+		<log message="Apply loan : ${headers}"></log>
+
+		<setHeader headerName="vm-template">
+			<constant>apply_loan.vm</constant>
+		</setHeader>
+
+		<to uri="direct:callRemoteService" />
+		
+			<to uri="xslt://templateS/xsl/loan_apply_step1.xsl"/>
+		
+
+		<to uri="direct:headers-cleanup" />
+
+	</route>
+	
+	
+	<route id="sessioncheck">
+		<from uri="direct:sessioncheck" />	
+
+		<setHeader headerName="vm-template">
+			<constant>session_check.vm</constant>
+		</setHeader>
+
+		<to uri="direct:callRemoteService" />
+		<log message="session ${body}"></log>
+
+		
+
+	</route>
+
+
+
+
+
+
+</routes>

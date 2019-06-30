@@ -1,0 +1,31 @@
+<rests xmlns="http://camel.apache.org/schema/spring" >
+	<rest path="/test" bindingMode="json" >
+
+	
+
+		<post uri="/login/step1/validate" >
+			<to uri="direct:userNameValidation" />
+		</post>
+		<post uri="/login/step2/verify">
+			<to uri="direct:loginStepTwoVerify" />
+		</post>
+		<post uri="/login/step3/verify">
+			<to uri="direct:loginStepThreeVerify" />
+		</post>
+		<post uri="/login/step4/verify">
+			<to uri="direct:loginStepFourVerify" />
+		</post>
+		<post uri="/selfpay/credit">
+			<to uri="direct:selfPayCredit" />
+		</post>
+
+		<post uri="/getProfile">
+			<to uri="direct:getProfileDetail" />
+		</post>
+		
+		<post uri="/getOlbsession">
+			<to uri="direct:getOlbSessionsCacheData" />
+		</post>
+		
+	</rest>
+</rests>

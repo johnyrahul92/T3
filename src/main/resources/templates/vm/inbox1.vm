@@ -1,0 +1,1 @@
+fldDataId=${headers.dataId}&fldFolderId=I&fldInboxId=${headers.mailType}&fldRequestId=RRIMS03&fldSectionId=RRIMS03&fldServiceType=IMS&fldSessionId=${headers.sessionId}&fldRequestId=RRIMS03&fldSessionId=${headers.sessionId}

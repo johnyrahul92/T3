@@ -1,0 +1,265 @@
+<routes xmlns="http://camel.apache.org/schema/spring">
+	<!-- <route id="test"> <from uri="timer:foo?period=11110000" /> <log message="HELLO 
+		XML"></log> <setHeader headerName="Content-Type"> <constant>application/json</constant> 
+		</setHeader> <setHeader headerName="sessionId"> <constant>olbsessionid</constant> 
+		</setHeader> <setHeader headerName="channelCode"> <constant>olb</constant> 
+		</setHeader> <setHeader headerName="username"> <constant>olbuser</constant> 
+		</setHeader> <setHeader headerName="requestId"> <constant>getSignaturefromBeam</constant> 
+		</setHeader> <setProperty propertyName="urlSignature"> <constant>http://10.20.17.65:7080/integration/signature-enquiry/signature-enquiry-list</constant> 
+		</setProperty> <setBody> <simple> { "productNo": "85043192"} </simple> </setBody> 
+		<recipientList> <simple>${header.urlSignature}</simple> </recipientList> 
+		<log message="Headers: ${headers} body ${body}"></log> <setHeader headerName="id"> 
+		<constant>1</constant> </setHeader> <to uri="direct:puData" /> </route> -->
+
+
+	<route id="test2">
+		<from uri="timer:foo2?period=1000000" />
+		<log message=" Putting to	cache " />
+
+
+		<setHeader headerName="id">
+			<constant>1</constant>
+		</setHeader>
+		<setBody>
+			<simple>{"test":"value"}</simple>
+		</setBody>
+		<to
+			uri="log:com.GBKT3?level=INFO&amp;showBody=false&amp;showHeaders=true" />
+
+		<unmarshal ref="xmlJsonDataFormat" />
+
+		<log message="body after unmarchaling is : ${body}"></log>
+		<setBody>
+			<simple>Get some TCP info</simple>
+		</setBody>
+
+		<!-- <to uri="netty4:tcp://52.20.16.20:30000" /> -->
+
+		<process ref="beanIoTest" />
+		<log message="Headers : ${headers} body netty: ${body}"></log>
+		<!-- <to uri="direct:puData" /> -->
+
+
+	</route>
+
+
+	<!-- <route> <from uri="netty4:tcp://localhost:5000?keepAlive=true" /> <log 
+		message="port connected ${body} " /> </route> -->
+	<!-- <route id="test"> <from uri="timer:foo2?period=2000" /> <log message=" 
+		Getting from cache " /> <setHeader headerName="id"> <constant>1</constant> 
+		</setHeader> <to uri="direct:getData" /> </route> -->
+
+	<route>
+
+		<from uri="direct:getPersons" />
+		<log message="${headers}"></log>
+		<process ref="testProcessor" />
+
+		<to uri="xslt://templates/xsl/olb-login-username.xsl" />
+
+	</route>
+
+	<route id="selfPayCredit">
+		<from uri="direct:selfPayCredit" />
+		<setHeader headerName="state">
+			<constant>preLogin</constant>
+		</setHeader>
+		<setHeader headerName="vm-template">
+			<constant>selfPayCredit.vm</constant>
+		</setHeader>
+		<to uri="direct:callRemoteService" />
+		<log message="body ${body}"></log>
+		
+	</route>
+
+
+
+
+
+	<route id="olb-login-step1">
+		<from uri="direct:userNameValidation" />
+		<log message=" header from login call : ${headers}"></log>
+		<log message=" body from login call : ${body}"></log>
+
+		<setHeader headerName="state">
+			<constant>preLogin</constant>
+		</setHeader>
+		<setHeader headerName="vm-template">
+			<constant>olb-login-username.vm</constant>
+		</setHeader>
+		<to uri="direct:callRemoteService" />
+		<setHeader headerName="body">
+			<simple>${body}</simple>
+		</setHeader>
+		<choice>
+			<when>
+				<simple>${header.Set-Cookie} 
+			!= null</simple>
+				<setBody>
+					<simple resultType="java.lang.String">${header.Set-Cookie}</simple>
+				</setBody>
+			</when>
+			<otherwise>
+				<setBody>
+					<xpath resultType="java.lang.String">//faml/request/fldjsessionid/text()</xpath>
+				</setBody>
+			</otherwise>
+		</choice>
+		<log message=" Body to jsession : ${body}" />
+
+
+		<setBody>
+			<simple>${header.body}</simple>
+		</setBody>
+		<to uri="xslt://templates/xsl/olb-login-username.xsl" />
+		<log message=" Body : ${body}" />
+	</route>
+
+
+
+	<route id="olb-login-step2">
+		<from uri="direct:loginStepTwoVerify" />
+		<log message=" header from login call : ${headers}"></log>
+
+		<setHeader headerName="state">
+			<constant>preLogin</constant>
+		</setHeader>
+
+		<setHeader headerName="fldSessionId">
+			<method ref="encodeHelper"
+				method="encodeUrl(${headers.fldSessionId})" />
+		</setHeader>
+
+		<setHeader headerName="vm-template">
+			<constant>olb-login-cardOr2FA.vm</constant>
+		</setHeader>
+
+		<to uri="direct:callRemoteService" />
+		<to uri="xslt://templates/xsl/olb-login-cardOr2FA.xsl" />
+		<log message=" Body : ${body}" />
+	</route>
+
+	<route id="olb-login-step3">
+		<from uri="direct:loginStepThreeVerify" />
+		<log message=" header from login call : ${headers}"></log>
+
+		<setHeader headerName="state">
+			<constant>preLogin</constant>
+		</setHeader>
+
+		<setHeader headerName="fldSessionId">
+			<method ref="encodeHelper"
+				method="encodeUrl(${headers.fldSessionId})" />
+		</setHeader>
+
+		<setHeader headerName="vm-template">
+			<constant>olb-login-image.vm</constant>
+		</setHeader>
+
+		<to uri="direct:callRemoteService" />
+		<to uri="xslt://templates/xsl/olb-login-image.xsl" />
+		<log message=" Body : ${body}" />
+	</route>
+
+	<route id="olb-login-step4">
+		<from uri="direct:loginStepFourVerify" />
+		<log message=" header from login call : ${headers}"></log>
+
+		<setHeader headerName="state">
+			<constant>preLogin</constant>
+		</setHeader>
+
+		<setHeader headerName="fldSessionId">
+			<method ref="encodeHelper"
+				method="encodeUrl(${headers.fldSessionId})" />
+		</setHeader>
+
+		<setHeader headerName="vm-template">
+			<constant>olb-login-password.vm</constant>
+		</setHeader>
+		<to uri="direct:callRemoteService" />
+		<log message="Olb Login step OK" loggingLevel="INFO" />
+		<log message=" Body : ${body}" />
+		<setHeader headerName="dataid">
+			<xpath resultType="java.lang.String">//faml/response/fldDataId/text()</xpath>
+		</setHeader>
+		<setHeader headerName="siid">
+			<xpath resultType="java.lang.String">//faml/response/sessioninfo/@idsession</xpath>
+		</setHeader>
+		<setHeader headerName="userid">
+			<xpath resultType="java.lang.String">//faml/response/sessioninfo/@iduser</xpath>
+		</setHeader>
+		<setHeader headerName="isRegisteredForSecQsAns">
+			<xpath resultType="java.lang.String">
+                    //faml/response/loginresponsedto/udffields/udfdto[udfname='fldisRegisteredForSecQsAns']/udfvalue = 'Y'
+                </xpath>
+		</setHeader>
+
+
+
+
+		<setHeader headerName="idchanneluser">
+			<xpath resultType="java.lang.String">//faml/response/sessioninfo/@idchanneluser</xpath>
+		</setHeader>
+
+		<setHeader headerName="idcustomer">
+			<xpath resultType="java.lang.String">
+                    //faml/response/loginresponsedto/user/userdto/customers/customerdto/idcustomer/text()
+                </xpath>
+		</setHeader>
+
+		<setHeader headerName="flagforcechangepassword">
+			<xpath resultType="java.lang.String">
+                    //faml/response/loginresponsedto/user/userdto/flagforcechangepassword/text()
+                </xpath>
+		</setHeader>
+
+		<setHeader headerName="new_user_request">
+			<xpath resultType="java.lang.String">
+                    //faml/response/forcepasswordresponsedto/udffields/udfdto[udfname='newuserreq']/udfvalue =
+                    'Y'
+                </xpath>
+		</setHeader>
+
+		<choice>
+			<when>
+				<xpath>//faml/response/loginresponsedto/udffields/udfdto[udfname='logon_msg']/udfvalue != 0</xpath>
+				<setHeader headerName="watermarkAvailable">
+					<constant>true</constant>
+				</setHeader>
+			</when>
+			<otherwise>
+				<setHeader headerName="watermarkAvailable">
+					<constant>false</constant>
+				</setHeader>
+			</otherwise>
+		</choice>
+		<setBody>
+			<xpath>//faml/response/loginresponsedto</xpath>
+		</setBody>
+
+
+		<to uri="direct:/createProfile" />
+
+
+		<log message="headers after sucess : ${headers}"></log>
+
+
+
+
+	</route>
+
+	<route id="olb-get-Profile">
+		<from uri="direct:getProfileDetail" />
+
+		<to uri="direct:getProfileCacheData" />
+
+
+	</route>
+
+
+
+
+
+
+</routes>

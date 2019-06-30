@@ -1,0 +1,1 @@
+idsequence=abcd&fldServiceType=EXS&fldRequestId=RREXSO1&fldDataId=${headers.dataId}&fldSessionId=${headers.sessionId}&fldSectionId=&fldDeviceId=01&idDevice=01&fldLangId=eng

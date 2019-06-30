@@ -1,0 +1,1 @@
+fldEntityId=T001&fldUserType=EN1&fldDeviceId=01&fldLangId=${headers.lang}&fldRequestId=RRTFC12&fldHiddenTxnId=TFC&fldImgId=${headers.fldImgId}&fldImgDesc=${headers.fldImgDesc}&fldLoginUserId=${headers.fldLoginUserId}&fldSessionID=${headers.fldSessionId}&fldCustomerId=${headers.fldCustomerId}
